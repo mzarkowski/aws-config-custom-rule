@@ -8,8 +8,7 @@ The rule is **compliant** when the AWS Serial Console Access feature:
 - was enabled, but has been auto-remediated by the evaluation lambda.
 
 The rule is **non-compliant** when the evaluation lambda:
-- failed to verify the status
-- failed to disable the feature
+- fails to disable the feature
 
 ---
 **NOTE ABOUT LAMBDA RUNTIME**
@@ -43,18 +42,16 @@ Create a new AWS Cloud Formation stack using the `ensure-serial-console-access-i
      Then: Return COMPLIANT
      Evidence: 
 ![](image.png)
+
   **Scenario: 2**
      Given: AWS Serial Console Access had been enabled but was disabled succesfully. 
      Then: Return COMPLIANT
      Evidence: 
 ![](image.png)
+
   **Scenario: 3**
      Given: AWS Serial Console Access is enabled and lambda fails to disable it.
      Then: Return NON_COMPLIANT
      Evidence: 
 ![](image.png)
-  **Scenario: 4**
-    Given: The evaluation lambda fails to verify the status
-     Then: Return NON_COMPLIANT
-     Evidence: 
-![](image.png)
+
