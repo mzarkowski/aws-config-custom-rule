@@ -37,21 +37,21 @@ Create a new AWS Cloud Formation stack using the `ensure-serial-console-access-i
 
 ### Tests scenarios
 
-  **Scenario: 1**
-     Given: AWS Serial Console Access is disabled.
-     Then: Return COMPLIANT
-     Evidence: 
-![](image.png)
+**Scenario: 1**
+- Given: AWS Serial Console Access is disabled.
+- Then: Return COMPLIANT
+- Evidence: 
+![](https://github.com/mzarkowski/aws-config-custom-rule/blob/main/tests/scenario1.png)
 
-  **Scenario: 2**
-     Given: AWS Serial Console Access had been enabled but was disabled succesfully. 
-     Then: Return COMPLIANT
-     Evidence: 
-![](image.png)
+**Scenario: 2**
+- Given: AWS Serial Console Access had been enabled but was disabled succesfully. 
+- Then: Return COMPLIANT
+- Evidence: 
+![](https://github.com/mzarkowski/aws-config-custom-rule/blob/main/tests/scenario2.png)
 
-  **Scenario: 3**
-     Given: AWS Serial Console Access is enabled and lambda fails to disable it.
-     Then: Return NON_COMPLIANT
-     Evidence: 
-![](image.png)
+**Scenario: 3**
+- Given: AWS Serial Console Access is enabled and lambda fails to disable it.
+- Then: Return NON_COMPLIANT
+- Evidence: 
+![](https://github.com/mzarkowski/aws-config-custom-rule/blob/main/tests/scenario3.png)
 
