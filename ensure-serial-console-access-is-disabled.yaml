@@ -1,0 +1,183 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  A custom AWS Config rule that ensures that AWS Serial Console Access feature is always disabled.
+
+Parameters:
+  Frequency:
+    Type: String
+    Default: 24hours
+    Description: The maximum execution frequency with which AWS Config runs evaluations for the custom rule.
+    AllowedValues:
+      - 1hour
+      - 3hours
+      - 6hours
+      - 12hours
+      - 24hours
+
+Mappings:
+  Settings:
+    FrequencyMap:
+      1hour   : One_Hour
+      3hours  : Three_Hours
+      6hours  : Six_Hours
+      12hours : Twelve_Hours
+      24hours : TwentyFour_Hours
+
+Resources:
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [lambda.amazonaws.com]
+            Action: 
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: ConfigPutEvaluations
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 
+                  - 'config:PutEvaluations'
+                Resource: '*'
+        - PolicyName: ManageSerialConsoleAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 
+                  - 'ec2:GetSerialConsoleAccessStatus'
+                  - 'ec2:DisableSerialConsoleAccess'
+                Resource: '*'
+
+  LambdaLoggingPolicy:
+    DependsOn: ConfigRuleEvaluationLambda
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: Logging
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: 
+              - 'logs:CreateLogGroup'
+            Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*"
+          - Effect: Allow
+            Action:
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+            Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ConfigRuleEvaluationLambda}:*'
+      Roles:
+        - Ref: 'LambdaExecutionRole'
+
+  ConfigRuleEvaluationLambda:
+    DependsOn: LambdaExecutionRole
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Code:
+        ZipFile: 
+          !Sub |
+            import json
+            import boto3
+            import logging
+
+            ec2_client = boto3.client('ec2')
+            config = boto3.client('config')
+
+            logger = logging.getLogger()
+            logger.setLevel(logging.INFO)
+
+            def is_serial_console_access_enabled():
+                response = ec2_client.get_serial_console_access_status()
+                return response['SerialConsoleAccessEnabled']
+
+            def disable_serial_access_console():
+                response = ec2_client.disable_serial_console_access()
+                return not response['SerialConsoleAccessEnabled']
+
+
+            def evaluate_compliance():
+                if not is_serial_console_access_enabled():
+                    msg = 'Serial console access is disabled.'
+                    logger.info(msg)
+                    
+                    return {
+                        "compliance_type": "COMPLIANT",
+                        "annotation": msg
+                    }
+                else:
+                    logger.info('Serial console access was enabled. Disabling...')
+                    
+                    try:
+                        if disable_serial_access_console():
+                            msg = 'Serial console access had been enabled, but was succesfully disabled.'
+                            logger.info(msg)
+                            
+                            return {
+                                "compliance_type": "COMPLIANT",
+                                "annotation": msg
+                            }
+                        else:
+                            raise Exception('Tried disabling serial console access, but the status has not been changed.')
+                    except Exception as e:
+                        msg = 'Error while disabling serial console access: {}'.format(e)
+                        logger.error(msg)
+                        
+                        return {
+                            "compliance_type": "NON_COMPLIANT",
+                            "annotation": msg
+                        }
+
+
+            def lambda_handler(event, context):
+                invoking_event      = json.loads(event["invokingEvent"])
+                evaluation          = evaluate_compliance()
+
+                response = config.put_evaluations(
+                   Evaluations = [
+                       {
+                           'ComplianceResourceType':    'AWS::::Account',
+                           'ComplianceResourceId':      event['accountId'],
+                           'ComplianceType':            evaluation['compliance_type'],
+                           "Annotation":                evaluation['annotation'],
+                           'OrderingTimestamp':         invoking_event['notificationCreationTime']
+                       },
+                   ],
+                   ResultToken = event['resultToken'])
+      FunctionName: config-ensure-serial-console-access-is-disabled
+      Handler: index.lambda_handler
+      MemorySize: 128
+      Runtime: python3.8
+      Role: !GetAtt [LambdaExecutionRole, Arn]
+      Layers:
+        - !Sub arn:aws:lambda:${AWS::Region}:770693421928:layer:Klayers-python38-boto3:69
+
+  PermissionForConfigToInvokeLambda:
+    DependsOn: ConfigRuleEvaluationLambda
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      Principal: config.amazonaws.com
+      FunctionName: !GetAtt [ConfigRuleEvaluationLambda, Arn]
+
+  CustomConfigRule:
+    DependsOn: PermissionForConfigToInvokeLambda
+    Type: 'AWS::Config::ConfigRule'
+    Properties:
+      ConfigRuleName: config-ensure-serial-console-access-is-disabled
+      Description: A Config rule that ensures that AWS Serial Console Access feature is always disabled.
+      Source:
+        Owner: CUSTOM_LAMBDA
+        SourceIdentifier: !GetAtt [ConfigRuleEvaluationLambda, Arn]
+        SourceDetails:
+          - EventSource: aws.config
+            MessageType: ScheduledNotification
+            MaximumExecutionFrequency: !FindInMap
+              - Settings
+              - FrequencyMap
+              - !Ref Frequency
