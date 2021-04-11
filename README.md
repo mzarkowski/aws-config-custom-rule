@@ -32,8 +32,17 @@ The AWS Serial Console Access feature is currently supported in the following re
 Before launching a custom config rule template, enable AWS Config in one of the [supported regions.](#supported-regions)
 To enable AWS Config, you can use a quickstart template `enable-config.yaml` that creates all essential resources. 
 
+You can use the below quick launch stack button to create the stack in Ohio:
+
+[![Launch Enable Config Stack](https://cdn.rawgit.com/buildkite/cloudformation-launch-stack-button-svg/master/launch-stack.svg)](https://us-east-2.console.aws.amazon.com/cloudformation/home?region=us-east-2#/stacks/create/review?templateURL=https://mzarkowski-static.s3-eu-west-1.amazonaws.com/enable_config.yaml&stackName=enable-config)
+
+
 ### Deploying a custom config rule
 Create a new AWS Cloud Formation stack using the `ensure-serial-console-access-is-disabled.yaml` template. 
+
+You can use the below quick launch stack button to create the stack in Ohio:
+
+[![Launch Serial Console Access Disabled Stack](https://cdn.rawgit.com/buildkite/cloudformation-launch-stack-button-svg/master/launch-stack.svg)](https://us-east-2.console.aws.amazon.com/cloudformation/home?region=us-east-2#/stacks/create/review?templateURL=https://mzarkowski-static.s3-eu-west-1.amazonaws.com/ensure-serial-console-access-is-disabled.yaml&stackName=ensure-serial-console-access-is-disabled) 
 
 ### Tests scenarios
 
